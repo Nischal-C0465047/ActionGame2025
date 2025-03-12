@@ -1,88 +1,85 @@
-//
-//  GameScene.swift
-//  ActionGame2025
-//
-//  Created by Nischal Karki on 2025-03-11.
-//
-
 import SpriteKit
-import GameplayKit
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate {
+
+    var sprite : SKSpriteNode!
+    var opponentSprite: SKSpriteNode!
     
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
-    
+    let spriteCategory1 : UInt32 = 0b1
+    let spriteCategory2 : UInt32 = 0b10
+
+
     override func didMove(to view: SKView) {
-        
-        // Get label node from scene and store it for use later
-        self.label = self.childNode(withName: "//helloLabel") as? SKLabelNode
-        if let label = self.label {
-            label.alpha = 0.0
-            label.run(SKAction.fadeIn(withDuration: 2.0))
+            // Enable physics contact delegate
+            self.physicsWorld.contactDelegate = self
+
+            // Add Player Sprite
+            sprite = SKSpriteNode(imageNamed: "PlayerSprite")
+            sprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            sprite.size = CGSize(width: 300, height: 300)
+            addChild(sprite)
+
+            // Add Physics Body to Player
+            sprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+            sprite.physicsBody?.categoryBitMask = spriteCategory1
+            sprite.physicsBody?.contactTestBitMask = spriteCategory2
+            sprite.physicsBody?.collisionBitMask = spriteCategory2
+            sprite.physicsBody?.affectedByGravity = false  // Prevent falling
+            sprite.physicsBody?.isDynamic = true           // Allows movement
+
+            // Add Opponent Sprite
+            opponentSprite = SKSpriteNode(imageNamed: "OpponentSprite")
+            opponentSprite.position = CGPoint(x: size.width / 2, y: size.height)
+            opponentSprite.size = CGSize(width: 150, height: 150)
+            addChild(opponentSprite)
+
+            // Add Physics Body to Opponent
+            opponentSprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+            opponentSprite.physicsBody?.categoryBitMask = spriteCategory2
+            opponentSprite.physicsBody?.contactTestBitMask = spriteCategory1
+            opponentSprite.physicsBody?.collisionBitMask = spriteCategory1
+            opponentSprite.physicsBody?.affectedByGravity = false
+            opponentSprite.physicsBody?.isDynamic = true  // Allows movement
+
+            // Define Movement Actions
+            let downMovement = SKAction.move(to: CGPoint(x: size.width / 2, y: 0), duration: 1)
+            let upMovement = SKAction.move(to: CGPoint(x: size.width / 2, y: size.height), duration: 1)
+            let movement = SKAction.sequence([downMovement, upMovement])
+
+            // Run Movement Loop
+            opponentSprite.run(SKAction.repeatForever(movement))
         }
-        
-        // Create shape node to use during mouse interaction
-        let w = (self.size.width + self.size.height) * 0.05
-        self.spinnyNode = SKShapeNode.init(rectOf: CGSize.init(width: w, height: w), cornerRadius: w * 0.3)
-        
-        if let spinnyNode = self.spinnyNode {
-            spinnyNode.lineWidth = 2.5
-            
-            spinnyNode.run(SKAction.repeatForever(SKAction.rotate(byAngle: CGFloat(Double.pi), duration: 1)))
-            spinnyNode.run(SKAction.sequence([SKAction.wait(forDuration: 0.5),
-                                              SKAction.fadeOut(withDuration: 0.5),
-                                              SKAction.removeFromParent()]))
+    
+    // Collision Detection
+        func didBegin(_ contact: SKPhysicsContact) {
+            print("Hit!")  // Prints when PlayerSprite collides with OpponentSprite
         }
-    }
-    
-    
-    func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
-        }
-    }
-    
-    func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
-    }
-    
+
+
+    func touchDown(atPoint pos : CGPoint) {}
+
+    func touchMoved(toPoint pos : CGPoint) {}
+
     func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
+        sprite.run(SKAction.move(to: pos, duration: 1))
     }
-    
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
-        }
-        
         for t in touches { self.touchDown(atPoint: t.location(in: self)) }
     }
-    
+
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
     }
-    
+
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchUp(atPoint: t.location(in: self)) }
     }
-    
+
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchUp(atPoint: t.location(in: self)) }
     }
-    
-    
-    override func update(_ currentTime: TimeInterval) {
-        // Called before each frame is rendered
-    }
+
+    override func update(_ currentTime: TimeInterval) {}
 }
+
