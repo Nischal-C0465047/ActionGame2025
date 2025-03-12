@@ -1,90 +1,129 @@
 import SpriteKit
 import GameplayKit
 
-
 class GameScene: SKScene, SKPhysicsContactDelegate {
-
-    var sprite : SKSpriteNode!
-    var opponentSprite: SKSpriteNode!
     
-    let spriteCategory1 : UInt32 = 0b1
-    let spriteCategory2 : UInt32 = 0b10
+    var sprite: SKSpriteNode!  // Player sprite
+    var opponentSprite: SKSpriteNode!  // Opponent sprite
 
+    let spriteCategory1: UInt32 = 0b1  // Player physics category
+    let spriteCategory2: UInt32 = 0b10  // Opponent physics category
 
     override func didMove(to view: SKView) {
-            // Enable physics contact delegate
-            self.physicsWorld.contactDelegate = self
+        // Enable physics contact delegate
+        self.physicsWorld.contactDelegate = self
 
-            // Add Player Sprite
-            sprite = SKSpriteNode(imageNamed: "PlayerSprite")
-            sprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
-            sprite.size = CGSize(width: 300, height: 300)
-            addChild(sprite)
+        // Add Player Sprite
+        sprite = SKSpriteNode(imageNamed: "PlayerSprite")
+        sprite.position = CGPoint(x: size.width / 2, y: size.height * 0.1) // Position near bottom
+        sprite.size = CGSize(width: 150, height: 150)
+        addChild(sprite)
 
-            // Add Physics Body to Player
-            sprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
-            sprite.physicsBody?.categoryBitMask = spriteCategory1
-            sprite.physicsBody?.contactTestBitMask = spriteCategory2
-            sprite.physicsBody?.collisionBitMask = spriteCategory2
-            sprite.physicsBody?.affectedByGravity = false  // Prevent falling
-            sprite.physicsBody?.isDynamic = true           // Allows movement
+        // Add physics to PlayerSprite
+        sprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+        sprite.physicsBody?.categoryBitMask = spriteCategory1
+        sprite.physicsBody?.contactTestBitMask = spriteCategory2
+        sprite.physicsBody?.collisionBitMask = spriteCategory2
+        sprite.physicsBody?.affectedByGravity = false
+        sprite.physicsBody?.isDynamic = true
 
-            // Add Opponent Sprite
-            opponentSprite = SKSpriteNode(imageNamed: "OpponentSprite")
-            opponentSprite.position = CGPoint(x: size.width / 2, y: size.height)
-            opponentSprite.size = CGSize(width: 150, height: 150)
-            addChild(opponentSprite)
+        // Add Opponent Sprite
+        opponentSprite = SKSpriteNode(imageNamed: "OpponentSprite")
+        resetOpponentPosition() // Randomize starting position
+        opponentSprite.size = CGSize(width: 100, height: 100)
+        addChild(opponentSprite)
 
-            // Add Physics Body to Opponent
-            opponentSprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
-            opponentSprite.physicsBody?.categoryBitMask = spriteCategory2
-            opponentSprite.physicsBody?.contactTestBitMask = spriteCategory1
-            opponentSprite.physicsBody?.collisionBitMask = spriteCategory1
-            opponentSprite.physicsBody?.affectedByGravity = false
-            opponentSprite.physicsBody?.isDynamic = true  // Allows movement
+        // Add physics to OpponentSprite
+        opponentSprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+        opponentSprite.physicsBody?.categoryBitMask = spriteCategory2
+        opponentSprite.physicsBody?.contactTestBitMask = spriteCategory1
+        opponentSprite.physicsBody?.collisionBitMask = spriteCategory1
+        opponentSprite.physicsBody?.affectedByGravity = false
+        opponentSprite.physicsBody?.isDynamic = true
 
-            // Define Movement Actions
-            let downMovement = SKAction.move(to: CGPoint(x: size.width / 2, y: 0), duration: 1)
-            let upMovement = SKAction.move(to: CGPoint(x: size.width / 2, y: size.height), duration: 1)
-            let movement = SKAction.sequence([downMovement, upMovement])
-
-            // Run Movement Loop
-            //opponentSprite.run(SKAction.repeatForever(movement))
-            moveOpponent()
-
-        }
-    
-    // Collision Detection
-        func didBegin(_ contact: SKPhysicsContact) {
-            print("Hit!")  // Prints when PlayerSprite collides with OpponentSprite
-        }
-    
-    func moveOpponent() {
-        let randomX = GKRandomSource.sharedRandom().nextInt(upperBound: Int(size.width))
-        let randomY = GKRandomSource.sharedRandom().nextInt(upperBound: Int(size.height))
-        let movement = SKAction.move(to: CGPoint(x: randomX, y: randomY), duration: 1)
-
-        opponentSprite.run(movement, completion: { [unowned self] in
-            self.moveOpponent()
-        })
+        // Start Opponent Movement
+        moveOpponent()
     }
 
+    // Function to set opponent's position at a random X value at the top
+    func resetOpponentPosition() {
+        let randomX = CGFloat(GKRandomSource.sharedRandom().nextInt(upperBound: Int(size.width)))
+        opponentSprite.position = CGPoint(x: randomX, y: size.height)
+    }
 
+    // Move Opponent: Falls straight down from a random starting position at the top
+    func moveOpponent() {
+        resetOpponentPosition() // Ensure opponent starts at a new random X position
 
-    func touchDown(atPoint pos : CGPoint) {}
+        // Random fall speed between 1 and 4 seconds
+        let fallSpeed = Double.random(in: 1.0...4.0)
+        let fallAction = SKAction.moveTo(y: 0, duration: fallSpeed) // Move opponent downward
 
-    func touchMoved(toPoint pos : CGPoint) {}
+        // Move opponent back up instantly when it reaches the bottom
+        let resetAction = SKAction.run { self.resetOpponentPosition() }
 
-    func touchUp(atPoint pos : CGPoint) {
+        // Sequence: Fall -> Reset -> Repeat
+        let movementSequence = SKAction.sequence([fallAction, resetAction, SKAction.run(moveOpponent)])
+
+        opponentSprite.run(movementSequence)
+    }
+
+    // Collision Detection
+    func didBegin(_ contact: SKPhysicsContact) {
+        // Check if the opponent collides with the player
+        if contact.bodyA.node == opponentSprite || contact.bodyB.node == opponentSprite {
+            opponentSprite.removeAllActions() // Stop current movement
+            opponentSprite.removeFromParent() // Remove opponent from scene
+            
+            // Respawn opponent at the top after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.respawnOpponent()
+            }
+        }
+    }
+
+    // Respawn opponent with a new random position
+    func respawnOpponent() {
+        // Create a new opponent sprite
+        opponentSprite = SKSpriteNode(imageNamed: "OpponentSprite")
+
+        // Set opponent size
+        opponentSprite.size = CGSize(width: 100, height: 100)
+
+        // Assign physics properties
+        opponentSprite.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+        opponentSprite.physicsBody?.categoryBitMask = spriteCategory2
+        opponentSprite.physicsBody?.contactTestBitMask = spriteCategory1
+        opponentSprite.physicsBody?.collisionBitMask = spriteCategory1
+        opponentSprite.physicsBody?.affectedByGravity = false
+        opponentSprite.physicsBody?.isDynamic = true
+
+        // Add opponent back to scene
+        addChild(opponentSprite)
+
+        // Restart opponent movement
+        moveOpponent()
+    }
+
+    // Allow Player to Move Left and Right
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let touch = touches.first {
+            let location = touch.location(in: self)
+
+            // Allow only horizontal movement, keep Y fixed at bottom
+            sprite.position = CGPoint(x: location.x, y: size.height * 0.1)
+        }
+    }
+
+    // Default touch methods (not used but kept for reference)
+    func touchDown(atPoint pos: CGPoint) {}
+    func touchMoved(toPoint pos: CGPoint) {}
+    func touchUp(atPoint pos: CGPoint) {
         sprite.run(SKAction.move(to: pos, duration: 1))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchDown(atPoint: t.location(in: self)) }
-    }
-
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
