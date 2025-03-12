@@ -1,4 +1,6 @@
 import SpriteKit
+import GameplayKit
+
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
 
@@ -47,13 +49,26 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let movement = SKAction.sequence([downMovement, upMovement])
 
             // Run Movement Loop
-            opponentSprite.run(SKAction.repeatForever(movement))
+            //opponentSprite.run(SKAction.repeatForever(movement))
+            moveOpponent()
+
         }
     
     // Collision Detection
         func didBegin(_ contact: SKPhysicsContact) {
             print("Hit!")  // Prints when PlayerSprite collides with OpponentSprite
         }
+    
+    func moveOpponent() {
+        let randomX = GKRandomSource.sharedRandom().nextInt(upperBound: Int(size.width))
+        let randomY = GKRandomSource.sharedRandom().nextInt(upperBound: Int(size.height))
+        let movement = SKAction.move(to: CGPoint(x: randomX, y: randomY), duration: 1)
+
+        opponentSprite.run(movement, completion: { [unowned self] in
+            self.moveOpponent()
+        })
+    }
+
 
 
     func touchDown(atPoint pos : CGPoint) {}
